@@ -21,7 +21,7 @@ param(
     [string]$StorageAccountRG = "your-storage-resource-group",
     [string]$ContainerName = "your-container-name",
     [string]$CertificateName = "cert-YourDatabaseName",
-    [string]$AdminLogin = "user@example.com", # ⚠️ Use a Microsoft Entra ID account
+    [string]$AdminLogin = "user@example.com", #  Use a Microsoft Entra ID account
     [string]$AdminPassword = "YourSecurePassword"                    # Microsoft Entra ID account password
 )
 
