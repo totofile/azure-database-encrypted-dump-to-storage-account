@@ -13,22 +13,28 @@ This repository provides PowerShell scripts for creating secure, encrypted backu
 ## Repository Structure
 
 ```
-encrypt-dump/
-├── README.md                                    # Main documentation
-├── SQL-Managed-Instance-Runbook/               # Scripts for Azure Automation runbooks
-│   ├── SQL-Managed-Instance-Secure-Backup-Runbook.ps1  # Primary script for SQL Managed Instance (.bak)
-│   └── runbook-encrypt-dump-NewAzSqlExport-method.PS1   # Alternative for Azure SQL Database (.bacpac)
-├── Client-Scripts/                             # Utility scripts for local execution
-│   └── connect-sql-paas.ps1                    # SQL connectivity testing script
-└── Decryption/                                 # Tools for decrypting backups
-    ├── decrypt.ps1                             # Main decryption script
-    └── README.md                               # Decryption guide
+.
+├── README.md                                             # Main documentation
+├── encrypted-azure-sql-&-sqlmi-backup-to-blob-storage/
+│   ├── from-azure-runbook-dump-encrypt-db/             # Scripts for Azure Automation runbooks
+│   │   ├── SQLMI-InvokeSqlCmd-Secure-Backup-Runbook.ps1  # Primary script for SQL Managed Instance (.bak)
+│   │   ├── encrypt-dump-NewAzSqlExport-method.PS1      # Alternative for Azure SQL Database (.bacpac)
+│   │   └── README.md                                     # Guide for these runbooks
+│   └── from-client-scripts/                            # Utility scripts for local execution
+│       ├── connect-sql-paas.ps1                        # SQL connectivity testing script
+│       ├── create-akv-cert.ps1                         # Script to create AKV certificate
+│       ├── encrypt-dump.PS1                            # Client-side encryption script
+│       ├── README.md                                     # Main guide for client scripts
+│       └── README_CLIENT.md                              # Additional client script details (consider merging)
+└── Decryption/                                           # Tools for decrypting backups
+    ├── decrypt.ps1                                     # Main decryption script
+    └── README.md                                       # Decryption guide
 ```
 
 ## Features
 
 ### SQL Managed Instance (Recommended)
-**Script:** `SQL-Managed-Instance-Runbook/SQL-Managed-Instance-Secure-Backup-Runbook.ps1`
+**Script:** `encrypted-azure-sql-&-sqlmi-backup-to-blob-storage/from-azure-runbook-dump-encrypt-db/SQLMI-InvokeSqlCmd-Secure-Backup-Runbook.ps1`
 
 - **Secure Authentication**: Azure Automation Managed Identity
 - **Native Backup**: Standard T-SQL `BACKUP DATABASE` command
@@ -36,7 +42,7 @@ encrypt-dump/
 - **Native Format**: High-performance .bak format
 
 ### Azure SQL Database
-**Script:** `SQL-Managed-Instance-Runbook/runbook-encrypt-dump-NewAzSqlExport-method.PS1`
+**Script:** `encrypted-azure-sql-&-sqlmi-backup-to-blob-storage/from-azure-runbook-dump-encrypt-db/encrypt-dump-NewAzSqlExport-method.PS1`
 
 - **API-based**: BACPAC export via Azure API (suitable for Azure SQL DB singletons/elastic pools)
 - **Complex Authentication**: May require additional setup compared to Managed Identity with SQL MI.
@@ -98,9 +104,9 @@ $KeyVaultName = "your-keyvault"
 
 ## Detailed Documentation
 
-- [SQL Managed Instance Runbook Guide](SQL-Managed-Instance-Runbook/README.md)
+- [Azure Automation Runbook Guide](encrypted-azure-sql-&-sqlmi-backup-to-blob-storage/from-azure-runbook-dump-encrypt-db/README.md)
+- [Client Scripts Guide](encrypted-azure-sql-&-sqlmi-backup-to-blob-storage/from-client-scripts/README.md)
 - [Decryption Guide](Decryption/README.md)
-- [Client Scripts Guide](Client-Scripts/README.md)
 
 ## Troubleshooting
 
