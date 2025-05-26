@@ -5,137 +5,114 @@ PowerShell scripts for automated, secure backups of Azure SQL Managed Instance a
 ## Scripts & Functionality
 
 1.  **`SQLMI-InvokeSqlCmd-Secure-Backup-Runbook.ps1` (Recommended for SQL MI)**:
-    *   Connects to SQL Managed Instance using Managed Identity.
-    *   Executes `BACKUP DATABASE ... TO URL` for native `.bak` creation with compression.
-    *   Downloads the `.bak` file, encrypts it (AES-256 with Key Vault cert), and re-uploads the `.bak.encrypted` to Azure Blob Storage.
-    *   **Note**: The Azure Automation account requires the `SqlServer` PowerShell module to be imported for `Invoke-Sqlcmd` and related cmdlets if not using a Hybrid Worker with the module pre-installed.
+    *   Uses Managed Identity authentication to securely connect to SQL Managed Instance.
+    *   Executes native backup using `BACKUP DATABASE TO URL` via `Invoke-Sqlcmd`.
+    *   Downloads, encrypts (AES-256), and uploads the `.bak.encrypted` file to Azure Blob Storage.
+    *   **Note**: Requires `SqlServer` PowerShell module in Azure Automation.
 
-2.  **`encrypt-dump-NewAzSqlExport-method.PS1` (For Azure SQL Database PaaS)**:
-    *   Connects to Azure SQL Database (PaaS singletons/elastic pools).
-    *   Uses `New-AzSqlDatabaseExport` to create a `.bacpac` file directly in Azure Blob Storage.
-    *   Downloads the `.bacpac`, encrypts it (AES-256 with Key Vault cert), and re-uploads the `.bacpac.encrypted` to Azure Blob Storage.
+2.  **`encrypt-dump-NewAzSqlExport-method.PS1` (For Azure SQL Database)**:
+    *   Uses Azure API to export Azure SQL Database to BACPAC.
+    *   Encrypts and uploads the `.bacpac.encrypted` file to Azure Blob Storage.
 
-## Prerequisites (General for Runbooks)
+## SQL Managed Instance Advantages
 
-- Azure Automation Account with a System-Assigned Managed Identity.
-- **Managed Identity Permissions**:
-    - SQL Server: `db_owner` (or specific backup/connect permissions) on the target database(s). Create user from external provider: `CREATE USER [automation_account_identity_name] FROM EXTERNAL PROVIDER; ALTER ROLE db_owner ADD MEMBER [automation_account_identity_name];`
-    - Azure Key Vault: Permissions to get the certificate's public key (e.g., Key Vault Crypto User or custom role with `Microsoft.KeyVault/vaults/certificates/get/action`).
-    - Azure Storage Account: `Storage Blob Data Contributor` on the container for uploads/downloads.
-- Azure Key Vault with an encryption certificate.
-- Target Azure Storage Account and container.
-- For `SQLMI-InvokeSqlCmd-Secure-Backup-Runbook.ps1`: The `SqlServer` PowerShell module must be available to the runbook environment (imported into Automation Account modules or on Hybrid Worker).
+- **Secure Authentication**: Azure Automation Managed Identity
+- **Native Backup**: Standard T-SQL `BACKUP DATABASE` command
+- **Optimal Performance**: Built-in SQL Server compression
+- **Native Format**: High-performance .bak format
+- **Simplicity**: Single T-SQL command
+
+## Installation
+
+### 1. Prerequisites
+- Azure Automation Account with system-assigned managed identity
+- SQL Managed Instance
+- Azure Key Vault with certificate
+- Azure Storage Account
+
+### 2. SQL Configuration (Required)
+Connect to your SQL Managed Instance and execute:
+
+```sql
+-- Replace [automation_account_name] with your managed identity name
+-- (This name appears in the runbook logs)
+CREATE USER [automation_account_name] FROM EXTERNAL PROVIDER;
+ALTER ROLE db_owner ADD MEMBER [automation_account_name];
+```
+
+**Note**: The managed identity name appears in the logs during connection testing.
+
+### 3. Azure Permissions
+Your managed identity needs:
+- **Storage Blob Data Contributor** on the Storage Account
+- **Key Vault Crypto User** on the Key Vault
+- **Reader** on the Resource Group
+
+### 4. Runbook Import
+1. Azure Portal → Automation Account
+2. Runbooks → Import a runbook
+3. Select `SQL-Managed-Instance-Secure-Backup-Runbook.ps1`
+4. Configure parameters
 
 ## Configuration
 
-- Set script parameters within each runbook (e.g., `$SubscriptionId`, `$ResourceGroup`, `$KeyVaultName`, `$SqlServerName`, `$AzureSqlDatabase`, `$StorageAccountName`, `$ContainerName`, `$CertificateName`).
-
-Refer to the main project [README](../../../README.md) for overall architecture and [Decryption Guide](../../../Decryption/README.md) for restoring backups.
-
-## Avantages SQL Managed Instance
-
-- **Backup natif T-SQL** : `BACKUP DATABASE TO URL`  
-- **Performance optimale** : Compression SQL Server intégrée  
-- **Authentification sécurisée** : `Invoke-Sqlcmd` avec token Azure AD  
-- **Format .bak efficace** : Backup natif haute performance  
-- **Simplicité** : Une seule commande T-SQL  
-
-## Fonctionnement
-
-### Étape 1 : Connexion Sécurisée
-```sql
--- Test de connexion avec identité managée
-SELECT DB_NAME() AS CurrentDatabase, 
-       CURRENT_USER AS CurrentUser, 
-       SYSTEM_USER AS SystemUser;
-```
-
-### Étape 2 : Backup T-SQL
-```sql
--- Création du credential
-CREATE CREDENTIAL [https://storage.blob.core.windows.net/backup]
-WITH IDENTITY = 'Managed Identity';
-
--- Backup vers Blob Storage
-BACKUP DATABASE [ma-database]
-TO URL = 'https://storage.blob.core.windows.net/backup/ma-database-20250526_123456.bak'
-WITH FORMAT, INIT, COMPRESSION;
-```
-
-### Étape 3 : Chiffrement
-- Chiffrement AES-256 avec clé Azure Key Vault
-- Upload du fichier chiffré vers Blob Storage
-- Nettoyage des fichiers temporaires
-
-## Monitoring
-
-### Logs Typiques
-```
-Successfully connected to database: ma-database
-Connected as user: AA-restore
-T-SQL backup command executed successfully
-Backup file verified in storage: 2.4 GB
-Backup file downloaded: 2.4 GB
-Encrypted file created: 2.4 GB
-Operation completed successfully!
-```
-
-### Erreurs Courantes
-| Erreur | Solution |
-|--------|----------|
-| `Login failed for user` | Exécuter les commandes CREATE USER |
-| `Permission denied` | Vérifier les rôles Azure de l'identité managée |
-| `Credential not found` | Le script crée automatiquement le credential |
-
-## Planification
-
-### Backup Quotidien
+### Runbook Parameters
 ```powershell
-# Créer un schedule dans Azure Automation
-New-AzAutomationSchedule -AutomationAccountName "MonAutomation" `
-                         -Name "BackupQuotidien" `
-                         -StartTime (Get-Date).AddDays(1) `
-                         -DayInterval 1
+$SubscriptionId = "your-subscription-id"
+$ResourceGroup = "your-resource-group"
+$KeyVaultName = "your-key-vault"
+$SqlServerName = "your-sqlmi-instance"        # Without .database.windows.net
+$AzureSqlDatabase = "your-database"
+$StorageAccountName = "your-storage-account"
+$ContainerName = "backup"
+$CertificateName = "your-certificate-name"
 ```
 
-## Sécurité
+## Operation
 
-- **Aucun mot de passe stocké** : Identité managée uniquement
-- **Chiffrement bout-en-bout** : AES-256 + RSA avec Key Vault
-- **Principe du moindre privilège** : Permissions minimales
-- **Audit complet** : Logs Azure Automation
+### 1. Azure Connection
+- Azure AD authentication
+- Subscription selection
+- Permission validation
 
-## Dépannage
+### 2. Database Backup
+- Native backup via T-SQL
+- File integrity validation
+- Compression enabled
 
-### Test de Connexion
-```powershell
-# Test manuel de connexion
-$token = (Get-AzAccessToken -ResourceUrl "https://database.windows.net/").Token
-Invoke-Sqlcmd -ServerInstance "mon-sqlmi.database.windows.net" `
-              -Database "ma-database" `
-              -AccessToken $token `
-              -Query "SELECT CURRENT_USER"
-```
+### 3. Encryption
+- Key Vault certificate retrieval
+- AES-256 + RSA encryption
+- Creation of `.encrypted` file
 
-### Vérification des Permissions
-```sql
--- Vérifier les permissions de l'identité
-SELECT dp.name as principal_name,
-       dp.type_desc as principal_type
-FROM sys.database_principals dp
-WHERE dp.name LIKE '%AA-restore%';
-```
+### 4. Secure Upload
+- Upload to Azure Blob Storage
+- SAS URL generation for download
+- Temporary file cleanup
 
 ## Performance
 
-- **Compression** : Réduction de 60-80% de la taille
-- **Vitesse** : Backup direct vers blob (pas de transit local)
-- **Parallélisme** : Utilise les capacités natives SQL Server
+### Typical Times
+- **Small DB** (< 10 GB): 5-15 minutes
+- **Medium DB** (10-100 GB): 15-45 minutes
+- **Large DB** (> 100 GB): 45+ minutes
+
+### Optimization
+- Uses SQL Server native compression
+- Parallel backup operations where possible
+- Efficient blob storage upload
 
 ## Support
 
-En cas de problème :
-1. Vérifiez les logs du runbook Azure Automation
-2. Testez la connexion SQL manuellement
-3. Validez les permissions de l'identité managée
-4. Consultez les métriques Azure Storage 
+For issues:
+1. Check Azure Automation logs
+2. Verify managed identity permissions
+3. Test SQL connectivity
+4. Review detailed PowerShell logs
+
+## Security
+
+- **Strong Authentication**: Azure AD only
+- **End-to-End Encryption**: No clear-text data
+- **Automatic Rotation**: Key Vault certificates
+- **Complete Audit**: Azure Activity logs 
