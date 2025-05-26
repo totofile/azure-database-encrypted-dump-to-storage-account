@@ -15,12 +15,12 @@ This repository provides PowerShell scripts for creating secure, encrypted backu
 ```
 encrypt-dump/
 ├── README.md                                    # Main documentation
-├── SQL-Managed-Instance-Runbook/               # Recommended solution
-│   ├── SQL-Managed-Instance-Secure-Backup-Runbook.ps1  # Main script
-│   └── runbook-encrypt-dump-NewAzSqlExport-method.PS1   # Azure SQL DB alternative
-├── Client-Scripts/                             # Local scripts
-│   └── connect-sql-paas.ps1                    # Connectivity testing
-└── Decryption/                                 # Decryption tools
+├── SQL-Managed-Instance-Runbook/               # Scripts for Azure Automation runbooks
+│   ├── SQL-Managed-Instance-Secure-Backup-Runbook.ps1  # Primary script for SQL Managed Instance (.bak)
+│   └── runbook-encrypt-dump-NewAzSqlExport-method.PS1   # Alternative for Azure SQL Database (.bacpac)
+├── Client-Scripts/                             # Utility scripts for local execution
+│   └── connect-sql-paas.ps1                    # SQL connectivity testing script
+└── Decryption/                                 # Tools for decrypting backups
     ├── decrypt.ps1                             # Main decryption script
     └── README.md                               # Decryption guide
 ```
@@ -28,7 +28,7 @@ encrypt-dump/
 ## Features
 
 ### SQL Managed Instance (Recommended)
-**Main Script:** `SQL-Managed-Instance-Runbook/SQL-Managed-Instance-Secure-Backup-Runbook.ps1`
+**Script:** `SQL-Managed-Instance-Runbook/SQL-Managed-Instance-Secure-Backup-Runbook.ps1`
 
 - **Secure Authentication**: Azure Automation Managed Identity
 - **Native Backup**: Standard T-SQL `BACKUP DATABASE` command
@@ -38,8 +38,8 @@ encrypt-dump/
 ### Azure SQL Database
 **Script:** `SQL-Managed-Instance-Runbook/runbook-encrypt-dump-NewAzSqlExport-method.PS1`
 
-- **API-based**: BACPAC export via Azure API
-- **Complex Authentication**: Requires additional setup
+- **API-based**: BACPAC export via Azure API (suitable for Azure SQL DB singletons/elastic pools)
+- **Complex Authentication**: May require additional setup compared to Managed Identity with SQL MI.
 
 ## Quick Start
 
@@ -53,7 +53,7 @@ encrypt-dump/
 Connect to your database and execute:
 
 ```sql
--- Replace [your_automation_account_name] with your managed identity name
+-- Replace [your_automation_account_name] with the name of your Azure Automation account's Managed Identity
 CREATE USER [your_automation_account_name] FROM EXTERNAL PROVIDER;
 ALTER ROLE db_owner ADD MEMBER [your_automation_account_name];
 ```
@@ -96,6 +96,11 @@ $KeyVaultName = "your-keyvault"
 - Scheduled automation
 - Webhook triggers
 
+## Detailed Documentation
+
+- [SQL Managed Instance Runbook Guide](SQL-Managed-Instance-Runbook/README.md)
+- [Decryption Guide](Decryption/README.md)
+- [Client Scripts Guide](Client-Scripts/README.md)
 
 ## Troubleshooting
 

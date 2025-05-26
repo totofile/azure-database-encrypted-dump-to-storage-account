@@ -1,7 +1,7 @@
 $SubscriptionId = "00000000-0000-0000-0000-000000000000"
 $TenantId = "00000000-0000-0000-0000-000000000000"
-$InputFile = "C:\path\to\your-database-file-name.bacpac.encrypted"
-$OutputFile = "C:\path\to\your-database-name.bacpac"
+$InputFile = "C:\path\to\your-database-file-name.bacpac.encrypted" #bak ou bacpac file 
+$OutputFile = "C:\path\to\your-database-name.bacpac" #bak ou bacpac file 
 $Debug = $false
 # Function to write to console with timestamp
 function Write-Log {

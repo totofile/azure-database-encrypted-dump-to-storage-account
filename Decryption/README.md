@@ -4,7 +4,7 @@ Decryption tools for encrypted backups created by Azure SQL Backup Solution.
 
 ## Overview
 
-This module provides tools to decrypt backup files encrypted with Azure Key Vault certificates and restore them to any compatible SQL Server.
+This module provides the `decrypt.ps1` script to decrypt backup files (.bak.encrypted or .bacpac.encrypted) that were encrypted using Azure Key Vault certificates. Once decrypted, these files can be restored to any compatible SQL Server instance.
 
 ## Features
 
@@ -28,19 +28,19 @@ This module provides tools to decrypt backup files encrypted with Azure Key Vaul
 ### Basic Decryption
 ```powershell
 # Decrypt a backup file
-.\decrypt.ps1 -EncryptedFile "database-20250526_123456.bak.encrypted" `
-              -KeyVaultName "your-key-vault" `
-              -CertificateName "cert-encryption"
+.\decrypt.ps1 -EncryptedFile "database-YYYYMMDD_HHMMSS.bak.encrypted" `
+              -KeyVaultName "your-key-vault-name" `
+              -CertificateName "your-certificate-name"
 ```
 
 ### With Automatic Restore
 ```powershell
-# Decrypt and restore in one step
+# Decrypt and restore in one step (ensure SqlServer parameters are correct)
 .\decrypt.ps1 -EncryptedFile "database.bak.encrypted" `
-              -KeyVaultName "your-key-vault" `
-              -CertificateName "cert-encryption" `
-              -SqlServer "your-sql-server" `
-              -DatabaseName "database-restored" `
+              -KeyVaultName "your-key-vault-name" `
+              -CertificateName "your-certificate-name" `
+              -SqlServer "your-sql-server-instance" `
+              -DatabaseName "your-target-database-name" `
               -AutoRestore
 ```
 
@@ -55,47 +55,58 @@ Connect-AzAccount
 
 ### Service Principal
 ```powershell
-# Automated authentication
-$ClientId = "app-id"
-$ClientSecret = "secret"
-$TenantId = "tenant-id"
+# Automated authentication (ensure Service Principal has necessary Key Vault permissions)
+$ClientId = "your-sp-application-id"
+$ClientSecret = "your-sp-client-secret"
+$TenantId = "your-azure-tenant-id"
 
 $SecureSecret = ConvertTo-SecureString $ClientSecret -AsPlainText -Force
 $Credential = New-Object PSCredential($ClientId, $SecureSecret)
 Connect-AzAccount -ServicePrincipal -Credential $Credential -TenantId $TenantId
 
-.\decrypt.ps1 -EncryptedFile "file.encrypted" -KeyVaultName "kv"
+.\decrypt.ps1 -EncryptedFile "path\to\your\file.encrypted" -KeyVaultName "your-key-vault-name"
 ```
 
-## Decryption Workflow
+## Decryption and Restore Process
 
-### 1. Download Encrypted File
+### 1. Download Encrypted File (Manual Step)
+If your encrypted backup file is in Azure Blob Storage, download it first.
 ```powershell
-# Download from Azure Blob Storage
-$StorageContext = New-AzStorageContext -StorageAccountName "storage" -UseConnectedAccount
-Get-AzStorageBlobContent -Container "backup" `
-                         -Blob "database.bak.encrypted" `
-                         -Destination "C:\Temp\" `
+# Example: Download from Azure Blob Storage
+$StorageAccountName = "yourstorageaccount"
+$ContainerName = "backupcontainer"
+$BlobName = "database.bak.encrypted"
+$DestinationPath = "C:\Temp\$BlobName"
+
+$StorageContext = New-AzStorageContext -StorageAccountName $StorageAccountName -UseConnectedAccount # or use -StorageAccountKey
+Get-AzStorageBlobContent -Container $ContainerName `
+                         -Blob $BlobName `
+                         -Destination $DestinationPath `
                          -Context $StorageContext
 ```
 
-### 2. Decryption Process
-The script automatically handles:
-- Key Vault certificate retrieval
-- RSA decryption of AES key
-- AES-256 file decryption
-- Integrity validation
+### 2. Decryption using `decrypt.ps1`
+The `decrypt.ps1` script performs the following actions:
+- Connects to Azure Key Vault to retrieve the specified certificate.
+- Uses the certificate's private key to decrypt the AES key embedded in the encrypted file's header.
+- Uses the decrypted AES key to decrypt the actual file content (AES-256).
+- Performs an integrity validation (e.g., checks if the decrypted file has a valid .bak or .bacpac structure if possible, verifies size).
+- Saves the decrypted file (e.g., `database.bak` or `database.bacpac`) to the specified output path.
 
-### 3. Database Restore
+### 3. Database Restore (Manual or Automated)
+Once the file is decrypted, restore it using standard SQL Server methods:
 ```powershell
-# For .bak files (SQL Managed Instance)
-RESTORE DATABASE [DatabaseName] 
-FROM DISK = 'C:\Temp\database.bak'
+# For .bak files (typically from SQL Managed Instance backups)
+RESTORE DATABASE [YourTargetDatabaseName] 
+FROM DISK = 'C:\Temp\database.bak' # Path to decrypted .bak file
 WITH REPLACE, STATS = 10;
 
-# For .bacpac files (Azure SQL Database)
-SqlPackage.exe /Action:Import /SourceFile:"database.bacpac" /TargetServerName:"server" /TargetDatabaseName:"database"
+# For .bacpac files (typically from Azure SQL Database exports)
+# Ensure SqlPackage.exe is in your PATH or provide the full path
+# e.g., & "C:\Program Files\Microsoft SQL Server\160\DAC\bin\SqlPackage.exe" ...
+SqlPackage.exe /Action:Import /SourceFile:"C:\Temp\database.bacpac" /TargetServerName:"your-sql-server-instance" /TargetDatabaseName:"YourTargetDatabaseName" # Add other params as needed (e.g., auth)
 ```
+If using the `-AutoRestore` parameter with `decrypt.ps1`, the script attempts this step automatically.
 
 ## Script Parameters
 
@@ -103,14 +114,14 @@ SqlPackage.exe /Action:Import /SourceFile:"database.bacpac" /TargetServerName:"s
 ```powershell
 -EncryptedFile      # Path to encrypted file
 -KeyVaultName       # Key Vault containing the certificate
--CertificateName    # Decryption certificate name
+-CertificateName    # Name of the certificate in Key Vault used for decryption
 ```
 
 ### Optional Parameters
 ```powershell
--OutputPath         # Output directory (default: same as input)
--SqlServer          # SQL Server for automatic restore
--DatabaseName       # Target database name
+-OutputPath         # Output directory for the decrypted file (default: same directory as the input file)
+-SqlServer          # SQL Server instance name for automatic restore (e.g., "localhost\SQLEXPRESS")
+-DatabaseName       # Target database name for automatic restore
 -AutoRestore        # Enable automatic restore
 -OverwriteExisting  # Overwrite existing files
 -KeepDecrypted      # Retain decrypted file after restore
@@ -137,14 +148,12 @@ SqlPackage.exe /Action:Import /SourceFile:"database.bacpac" /TargetServerName:"s
 |--------|-------|----------|
 | `Certificate not found` | Missing/deleted certificate | Verify Key Vault certificate |
 | `Decryption failed` | Wrong certificate | Use correct encryption certificate |
-| `File corrupted` | Data integrity issue | Re-download from blob |
-| `Access denied` | Insufficient permissions | Check Azure roles |
+| `File corrupted` | Data integrity issue (e.g., incomplete download) | Re-download from source, verify file size/checksum if available |
+| `Access denied` | Insufficient permissions to Key Vault, Storage, or SQL Server | Check Azure roles & SQL permissions |
 
-### Integrity Validation
-The script automatically verifies:
-- Decrypted file size
-- Checksum (if available)
-- File format (.bak/.bacpac)
+### Integrity Validation Details
+The script performs basic checks. For .bak files, a more thorough validation occurs if a restore is attempted. For .bacpac, the structure is more complex to validate pre-import without specialized tools.
+Always verify the restored database manually after the process.
 
 ### Debug Mode
 ```powershell
