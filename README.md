@@ -1,110 +1,121 @@
-# Secure Azure SQL Backup & Encryption
+# Azure SQL Secure Backup & Encryption
 
-Solution sécurisée pour sauvegarder et chiffrer les bases de données Azure SQL avec Azure Key Vault.
+Secure solution for backing up and encrypting Azure SQL databases using Azure Key Vault and Blob Storage.
 
-## Vue d'ensemble
+[![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![PowerShell](https://img.shields.io/badge/PowerShell-5.1+-blue.svg)](https://github.com/PowerShell/PowerShell)
+[![Azure](https://img.shields.io/badge/Azure-Automation-0089D6.svg)](https://azure.microsoft.com/services/automation/)
 
-Ce repository contient des scripts PowerShell pour créer des sauvegardes sécurisées et chiffrées de bases de données Azure SQL. Les sauvegardes sont chiffrées avec des certificats Azure Key Vault et stockées dans Azure Blob Storage.
+## Overview
 
-## Structure du Repository
+This repository provides PowerShell scripts for creating secure, encrypted backups of Azure SQL databases. The solution uses Azure Key Vault certificates for encryption and stores backups in Azure Blob Storage, with a focus on security and automation.
+
+## Repository Structure
 
 ```
 encrypt-dump/
-├── README.md                                    # Documentation principale
-├── SQL-Managed-Instance-Runbook/               # Solution recommandée
-│   ├── SQL-Managed-Instance-Secure-Backup-Runbook.ps1  # Script principal
-│   └── runbook-encrypt-dump-NewAzSqlExport-method.PS1   # Alternative Azure SQL DB
-├── Client-Scripts/                             # Scripts locaux
-│   └── connect-sql-paas.ps1                    # Test connectivité
-└── Decryption/                                 # Outils de déchiffrement
-    ├── decrypt.ps1                             # Script principal
-    └── README.md                               # Guide déchiffrement
+├── README.md                                    # Main documentation
+├── SQL-Managed-Instance-Runbook/               # Recommended solution
+│   ├── SQL-Managed-Instance-Secure-Backup-Runbook.ps1  # Main script
+│   └── runbook-encrypt-dump-NewAzSqlExport-method.PS1   # Azure SQL DB alternative
+├── Client-Scripts/                             # Local scripts
+│   └── connect-sql-paas.ps1                    # Connectivity testing
+└── Decryption/                                 # Decryption tools
+    ├── decrypt.ps1                             # Main decryption script
+    └── README.md                               # Decryption guide
 ```
 
-## Solutions Disponibles
+## Features
 
-### SQL Managed Instance (Recommandé)
-**Script principal :** `SQL-Managed-Instance-Runbook/SQL-Managed-Instance-Secure-Backup-Runbook.ps1`
+### SQL Managed Instance (Recommended)
+**Main Script:** `SQL-Managed-Instance-Runbook/SQL-Managed-Instance-Secure-Backup-Runbook.ps1`
 
-- **Authentification sécurisée** : Identité managée Azure Automation  
-- **Backup natif** : Commande T-SQL `BACKUP DATABASE` standard  
-- **Performance optimale** : Compression intégrée SQL Server  
-- **Format .bak** : Backup natif haute performance  
+- **Secure Authentication**: Azure Automation Managed Identity
+- **Native Backup**: Standard T-SQL `BACKUP DATABASE` command
+- **Optimal Performance**: Built-in SQL Server compression
+- **Native Format**: High-performance .bak format
 
 ### Azure SQL Database
-**Script :** `SQL-Managed-Instance-Runbook/runbook-encrypt-dump-NewAzSqlExport-method.PS1`
+**Script:** `SQL-Managed-Instance-Runbook/runbook-encrypt-dump-NewAzSqlExport-method.PS1`
 
-- **Limitations** : Export BACPAC via API Azure (plus lent)  
-- **Complexité** : Authentification plus complexe  
+- **API-based**: BACPAC export via Azure API
+- **Complex Authentication**: Requires additional setup
 
-## Installation Rapide
+## Quick Start
 
-### Prérequis
-- Azure Automation Account avec identité managée système
-- SQL Managed Instance ou Azure SQL Database
-- Azure Key Vault avec certificat
+### Prerequisites
+- Azure Automation Account with system-managed identity
+- SQL Managed Instance or Azure SQL Database
+- Azure Key Vault with certificate
 - Azure Storage Account
 
-### Configuration SQL (Obligatoire)
-Connectez-vous à votre base de données et exécutez :
+### SQL Configuration
+Connect to your database and execute:
 
 ```sql
--- Remplacez [AA-restore] par le nom de votre identité managée
+-- Replace [AA-restore] with your managed identity name
 CREATE USER [AA-restore] FROM EXTERNAL PROVIDER;
 ALTER ROLE db_owner ADD MEMBER [AA-restore];
 ```
 
-### Déploiement
-1. Importez le script dans Azure Automation
-2. Configurez les paramètres dans le runbook
-3. Programmez l'exécution automatique
+### Deployment Steps
+1. Import script into Azure Automation
+2. Configure runbook parameters
+3. Schedule automated execution
 
-## Sécurité
+## Security Features
 
-- **Authentification sans mot de passe** : Identité managée Azure
-- **Chiffrement AES-256** : Clés gérées par Azure Key Vault  
-- **Rotation automatique** : Certificats Azure Key Vault
-- **Principe du moindre privilège** : Permissions minimales
+- **Passwordless Authentication**: Azure Managed Identity
+- **AES-256 Encryption**: Keys managed by Azure Key Vault
+- **Automatic Key Rotation**: Azure Key Vault certificates
+- **Least Privilege**: Minimal required permissions
 
-## Comparaison des Solutions
+## Solution Comparison
 
-| Critère | SQL Managed Instance | Azure SQL Database |
-|---------|---------------------|-------------------|
-| **Performance** | Excellent | Bon |
-| **Simplicité** | Très simple | Complexe |
-| **Format** | .bak (natif) | .bacpac (export) |
-| **Taille** | Compressé | Plus volumineux |
-| **Vitesse** | Rapide | Plus lent |
+| Criteria | SQL Managed Instance | Azure SQL Database |
+|----------|---------------------|-------------------|
+| **Performance** | Excellent | Good |
+| **Complexity** | Simple | Complex |
+| **Format** | .bak (native) | .bacpac (export) |
+| **Size** | Compressed | Larger |
+| **Speed** | Fast | Slower |
 
 ## Usage
 
-### Pour SQL Managed Instance
+### SQL Managed Instance Configuration
 ```powershell
-# Configuration dans le runbook
-$SqlServerName = "votre-sqlmi-instance"
-$AzureSqlDatabase = "votre-database"
-$StorageAccountName = "votre-storage"
-$KeyVaultName = "votre-keyvault"
+# Runbook configuration
+$SqlServerName = "your-sqlmi-instance"
+$AzureSqlDatabase = "your-database"
+$StorageAccountName = "your-storage"
+$KeyVaultName = "your-keyvault"
 ```
 
-### Exécution
-Le runbook peut être exécuté :
-- Manuellement depuis le portail Azure
-- Automatiquement via schedule
-- Déclenché par webhook
+### Execution Methods
+- Manual execution from Azure portal
+- Scheduled automation
+- Webhook triggers
 
-## Documentation Détaillée
+## Detailed Documentation
 
-- [Guide SQL Managed Instance](SQL-Managed-Instance-Runbook/README.md)
-- [Guide Déchiffrement](Decryption/README.md)
+- [SQL Managed Instance Guide](SQL-Managed-Instance-Runbook/README.md)
+- [Decryption Guide](Decryption/README.md)
 
-## Support
+## Troubleshooting
 
-Pour des questions ou problèmes :
-1. Vérifiez les logs Azure Automation
-2. Validez les permissions de l'identité managée
-3. Testez la connectivité SQL avec `Invoke-Sqlcmd`
+For issues:
+1. Check Azure Automation logs
+2. Validate managed identity permissions
+3. Test SQL connectivity with `Invoke-Sqlcmd`
 
-## Licence
+## Contributing
 
-Ce projet est sous licence MIT. Voir le fichier LICENSE pour plus de détails.
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

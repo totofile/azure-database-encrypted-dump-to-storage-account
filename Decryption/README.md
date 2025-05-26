@@ -1,65 +1,61 @@
-# Déchiffrement des Sauvegardes
+# Azure SQL Backup Decryption Tool
 
-Scripts pour déchiffrer et restaurer les sauvegardes chiffrées créées par les runbooks Azure.
+Decryption tools for encrypted backups created by Azure SQL Backup Solution.
 
-## Vue d'ensemble
+## Overview
 
-Ce dossier contient les outils nécessaires pour déchiffrer les fichiers de sauvegarde chiffrés avec Azure Key Vault et les restaurer sur n'importe quel serveur SQL compatible.
+This module provides tools to decrypt backup files encrypted with Azure Key Vault certificates and restore them to any compatible SQL Server.
 
-## Fichiers
+## Features
 
-- **`decrypt.ps1`** - Script principal de déchiffrement
+- **Secure Decryption**: Azure Key Vault certificate-based
+- **Multi-format Support**: Compatible with .bak (SQL MI) and .bacpac (Azure SQL DB)
+- **Portability**: Restore to any SQL Server instance
+- **Data Integrity**: Automatic backup validation
+- **Flexibility**: Local or cloud-based decryption
 
-## Fonctionnalités
+## Prerequisites
 
-- **Déchiffrement sécurisé** : Utilise les certificats Azure Key Vault  
-- **Multi-format** : Compatible .bak (SQL MI) et .bacpac (Azure SQL DB)  
-- **Portabilité** : Restoration sur n'importe quel SQL Server  
-- **Validation** : Vérification de l'intégrité des données  
-- **Flexibilité** : Déchiffrement local ou cloud  
-
-## Prérequis
-
-- PowerShell 5.1 ou supérieur
-- Modules Azure PowerShell :
+- PowerShell 5.1 or higher
+- Azure PowerShell modules:
   - Az.Accounts
   - Az.KeyVault
-- Accès au Key Vault et au certificat utilisé pour le chiffrement
-- Le fichier de sauvegarde chiffré (.bak.encrypted ou .bacpac.encrypted)
+- Access to the Azure Key Vault and encryption certificate
+- Encrypted backup file (.bak.encrypted or .bacpac.encrypted)
 
-## Usage Rapide
+## Quick Start
 
-### Déchiffrement Simple
+### Basic Decryption
 ```powershell
-# Déchiffrer un fichier de sauvegarde
+# Decrypt a backup file
 .\decrypt.ps1 -EncryptedFile "database-20250526_123456.bak.encrypted" `
-              -KeyVaultName "mon-key-vault" `
+              -KeyVaultName "your-key-vault" `
               -CertificateName "cert-encryption"
 ```
 
-### Avec Restauration Automatique
+### With Automatic Restore
 ```powershell
-# Déchiffrer et restaurer directement
+# Decrypt and restore in one step
 .\decrypt.ps1 -EncryptedFile "database.bak.encrypted" `
-              -KeyVaultName "mon-key-vault" `
+              -KeyVaultName "your-key-vault" `
               -CertificateName "cert-encryption" `
-              -SqlServer "mon-serveur-sql" `
+              -SqlServer "your-sql-server" `
               -DatabaseName "database-restored" `
               -AutoRestore
 ```
 
-## Authentification
+## Authentication Methods
 
-### Authentification Interactive
+### Interactive Authentication
 ```powershell
-# Connexion avec navigateur (recommandé)
+# Browser-based login (recommended)
 Connect-AzAccount
-.\decrypt.ps1 -EncryptedFile "fichier.encrypted" -KeyVaultName "kv"
+.\decrypt.ps1 -EncryptedFile "file.encrypted" -KeyVaultName "kv"
 ```
 
 ### Service Principal
 ```powershell
-# Authentification automatisée
+# Automated authentication
 $ClientId = "app-id"
 $ClientSecret = "secret"
 $TenantId = "tenant-id"
@@ -68,14 +64,14 @@ $SecureSecret = ConvertTo-SecureString $ClientSecret -AsPlainText -Force
 $Credential = New-Object PSCredential($ClientId, $SecureSecret)
 Connect-AzAccount -ServicePrincipal -Credential $Credential -TenantId $TenantId
 
-.\decrypt.ps1 -EncryptedFile "fichier.encrypted" -KeyVaultName "kv"
+.\decrypt.ps1 -EncryptedFile "file.encrypted" -KeyVaultName "kv"
 ```
 
-## Workflow de Déchiffrement
+## Decryption Workflow
 
-### 1. Téléchargement du Fichier Chiffré
+### 1. Download Encrypted File
 ```powershell
-# Télécharger depuis Azure Blob Storage
+# Download from Azure Blob Storage
 $StorageContext = New-AzStorageContext -StorageAccountName "storage" -UseConnectedAccount
 Get-AzStorageBlobContent -Container "backup" `
                          -Blob "database.bak.encrypted" `
@@ -83,100 +79,96 @@ Get-AzStorageBlobContent -Container "backup" `
                          -Context $StorageContext
 ```
 
-### 2. Déchiffrement
-```powershell
-# Le script effectue automatiquement :
-# - Récupération du certificat Key Vault
-# - Déchiffrement de la clé AES avec RSA
-# - Déchiffrement du fichier avec AES-256
-# - Validation de l'intégrité
-```
+### 2. Decryption Process
+The script automatically handles:
+- Key Vault certificate retrieval
+- RSA decryption of AES key
+- AES-256 file decryption
+- Integrity validation
 
-### 3. Restauration
+### 3. Database Restore
 ```powershell
-# Pour fichier .bak (SQL Managed Instance)
+# For .bak files (SQL Managed Instance)
 RESTORE DATABASE [DatabaseName] 
 FROM DISK = 'C:\Temp\database.bak'
 WITH REPLACE, STATS = 10;
 
-# Pour fichier .bacpac (Azure SQL Database)
-SqlPackage.exe /Action:Import /SourceFile:"database.bacpac" /TargetServerName:"serveur" /TargetDatabaseName:"database"
+# For .bacpac files (Azure SQL Database)
+SqlPackage.exe /Action:Import /SourceFile:"database.bacpac" /TargetServerName:"server" /TargetDatabaseName:"database"
 ```
 
-## Paramètres Détaillés
+## Script Parameters
 
-### Paramètres Obligatoires
+### Required Parameters
 ```powershell
--EncryptedFile      # Chemin vers le fichier chiffré
--KeyVaultName       # Nom du Key Vault contenant le certificat
--CertificateName    # Nom du certificat de déchiffrement
+-EncryptedFile      # Path to encrypted file
+-KeyVaultName       # Key Vault containing the certificate
+-CertificateName    # Decryption certificate name
 ```
 
-### Paramètres Optionnels
+### Optional Parameters
 ```powershell
--OutputPath         # Dossier de sortie (défaut: même dossier)
--SqlServer          # Serveur SQL pour restauration automatique
--DatabaseName       # Nom de la base après restauration
--AutoRestore        # Déclenche la restauration automatique
--OverwriteExisting  # Remplace les fichiers existants
--KeepDecrypted      # Conserve le fichier déchiffré après restauration
+-OutputPath         # Output directory (default: same as input)
+-SqlServer          # SQL Server for automatic restore
+-DatabaseName       # Target database name
+-AutoRestore        # Enable automatic restore
+-OverwriteExisting  # Overwrite existing files
+-KeepDecrypted      # Retain decrypted file after restore
 ```
 
-## Sécurité
+## Security
 
-### Permissions Requises
-- **Key Vault Crypto User** : Pour accéder aux certificats
-- **Storage Blob Data Reader** : Pour télécharger les fichiers chiffrés
-- **sysadmin** ou **dbcreator** : Pour la restauration SQL Server
+### Required Permissions
+- **Key Vault Crypto User**: Certificate access
+- **Storage Blob Data Reader**: Encrypted file download
+- **sysadmin** or **dbcreator**: SQL Server restore
 
-### Bonnes Pratiques
-- Utilisez des identités managées quand c'est possible
-- Limitez l'accès aux certificats de déchiffrement
-- Supprimez les fichiers temporaires après usage
-- Auditez tous les accès aux sauvegardes
+### Best Practices
+- Use managed identities when possible
+- Limit decryption certificate access
+- Clean up temporary files
+- Audit all backup access
 
-## Dépannage
+## Troubleshooting
 
-### Erreurs Courantes
+### Common Issues
 
-| Erreur | Cause | Solution |
+| Error | Cause | Solution |
 |--------|-------|----------|
-| `Certificate not found` | Certificat supprimé/inexistant | Vérifier le nom dans Key Vault |
-| `Decryption failed` | Mauvais certificat utilisé | Utiliser le certificat de chiffrement |
-| `File corrupted` | Fichier endommagé | Re-télécharger depuis le blob |
-| `Access denied` | Permissions insuffisantes | Vérifier les rôles Azure |
+| `Certificate not found` | Missing/deleted certificate | Verify Key Vault certificate |
+| `Decryption failed` | Wrong certificate | Use correct encryption certificate |
+| `File corrupted` | Data integrity issue | Re-download from blob |
+| `Access denied` | Insufficient permissions | Check Azure roles |
 
-### Validation de l'Intégrité
-```powershell
-# Le script vérifie automatiquement :
-# - Taille du fichier déchiffré
-# - Hash de contrôle (si disponible)
-# - Format du fichier (.bak/.bacpac)
-```
+### Integrity Validation
+The script automatically verifies:
+- Decrypted file size
+- Checksum (if available)
+- File format (.bak/.bacpac)
 
-### Mode Debug
+### Debug Mode
 ```powershell
-# Activer les logs détaillés
+# Enable detailed logging
 .\decrypt.ps1 -EncryptedFile "file.encrypted" -KeyVaultName "kv" -Verbose
 ```
 
 ## Performance
 
-### Temps de Déchiffrement
-- **Petite base** (< 1 GB) : 1-2 minutes
-- **Base moyenne** (1-10 GB) : 3-10 minutes  
-- **Grande base** (10+ GB) : 10+ minutes
+### Decryption Times
+- **Small DB** (< 1 GB): 1-2 minutes
+- **Medium DB** (1-10 GB): 3-10 minutes
+- **Large DB** (10+ GB): 10+ minutes
 
-### Optimisations
-- Utilisez un SSD pour les fichiers temporaires
-- Assurez-vous d'avoir suffisamment d'espace disque (2x la taille du fichier)
-- Exécutez le déchiffrement sur une machine puissante
+### Optimization Tips
+- Use SSD for temporary files
+- Ensure sufficient disk space (2x file size)
+- Run decryption on powerful machine
 
 ## Support
 
-En cas de problème :
-1. Vérifiez les permissions Key Vault avec `Get-AzKeyVaultAccessPolicy`
-2. Testez la connectivité Azure avec `Test-AzKeyVaultConnection`
-3. Validez l'intégrité du fichier chiffré
-4. Consultez les logs détaillés avec `-Verbose`
-5. Vérifiez l'espace disque disponible 
+For issues:
+1. Check Key Vault permissions with `Get-AzKeyVaultAccessPolicy`
+2. Test Azure connectivity with `Test-AzKeyVaultConnection`
+3. Validate encrypted file integrity
+4. Review detailed logs with `-Verbose`
+5. Verify available disk space 
