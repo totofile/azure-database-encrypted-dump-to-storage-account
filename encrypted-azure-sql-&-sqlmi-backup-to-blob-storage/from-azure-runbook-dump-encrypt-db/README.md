@@ -48,10 +48,10 @@ Your managed identity needs:
 - **Key Vault Crypto User** on the Key Vault
 - **Reader** on the Resource Group
 
-### 4. Runbook Import
+### 4. Automation-Account Import Module
 1. Azure Portal → Automation Account
-2. Runbooks → Import a runbook
-3. Select `SQL-Managed-Instance-Secure-Backup-Runbook.ps1`
+2. Automation Account → Import a runbook module named *SqlServer*
+3. Select `SQL-Managed-Instance-Secure-Backup-Runbook.ps1`→ copy/paste script 
 4. Configure parameters
 
 ## Configuration
