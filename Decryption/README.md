@@ -1,10 +1,37 @@
-# Azure SQL Backup Decryption Tool
+# Backup Decryption Tool (`decrypt.ps1`)
 
-Decryption tools for encrypted backups created by Azure SQL Backup Solution.
+This script decrypts `.bak.encrypted` or `.bacpac.encrypted` files previously encrypted by this solution's backup scripts.
 
-## Overview
+## Functionality
 
-This module provides the `decrypt.ps1` script to decrypt backup files (.bak.encrypted or .bacpac.encrypted) that were encrypted using Azure Key Vault certificates. Once decrypted, these files can be restored to any compatible SQL Server instance.
+Uses an Azure Key Vault certificate to:
+1. Decrypt the AES key embedded in the encrypted file.
+2. Decrypt the file content using the AES key (AES-256).
+3. Save the decrypted file (e.g., `database.bak` or `database.bacpac`).
+
+Optionally, it can attempt to auto-restore `.bak` files to a specified SQL Server.
+
+## Prerequisites
+
+- PowerShell 5.1+
+- Azure PowerShell Modules: `Az.Accounts`, `Az.KeyVault`.
+- Access to the Azure Key Vault and the specific certificate used for encryption.
+- The `.encrypted` backup file.
+
+## Basic Usage
+
+```powershell
+# Ensure you are connected to Azure: Connect-AzAccount
+
+.\decrypt.ps1 -EncryptedFile "path\to\your\database.bak.encrypted" `
+              -KeyVaultName "your-key-vault-name" `
+              -CertificateName "your-certificate-name"
+
+# For auto-restore (primarily for .bak files):
+# .\decrypt.ps1 -EncryptedFile "..." -KeyVaultName "..." -CertificateName "..." -SqlServer "YourSQLInstance" -DatabaseName "TargetDB" -AutoRestore
+```
+
+Refer to script comments for more parameters (`-OutputPath`, `-OverwriteExisting`, etc.).
 
 ## Features
 
@@ -13,36 +40,6 @@ This module provides the `decrypt.ps1` script to decrypt backup files (.bak.encr
 - **Portability**: Restore to any SQL Server instance
 - **Data Integrity**: Automatic backup validation
 - **Flexibility**: Local or cloud-based decryption
-
-## Prerequisites
-
-- PowerShell 5.1 or higher
-- Azure PowerShell modules:
-  - Az.Accounts
-  - Az.KeyVault
-- Access to the Azure Key Vault and encryption certificate
-- Encrypted backup file (.bak.encrypted or .bacpac.encrypted)
-
-## Quick Start
-
-### Basic Decryption
-```powershell
-# Decrypt a backup file
-.\decrypt.ps1 -EncryptedFile "database-YYYYMMDD_HHMMSS.bak.encrypted" `
-              -KeyVaultName "your-key-vault-name" `
-              -CertificateName "your-certificate-name"
-```
-
-### With Automatic Restore
-```powershell
-# Decrypt and restore in one step (ensure SqlServer parameters are correct)
-.\decrypt.ps1 -EncryptedFile "database.bak.encrypted" `
-              -KeyVaultName "your-key-vault-name" `
-              -CertificateName "your-certificate-name" `
-              -SqlServer "your-sql-server-instance" `
-              -DatabaseName "your-target-database-name" `
-              -AutoRestore
-```
 
 ## Authentication Methods
 

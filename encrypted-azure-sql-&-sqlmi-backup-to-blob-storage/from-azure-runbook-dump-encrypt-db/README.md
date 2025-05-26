@@ -1,15 +1,36 @@
-# SQL Managed Instance - Runbook Sécurisé
+# Azure Automation Runbook Scripts
 
-Script Azure Automation pour sauvegardes sécurisées et chiffrées de SQL Managed Instance.
+PowerShell scripts for automated, secure backups of Azure SQL Managed Instance and Azure SQL Database, designed to run as Azure Automation runbooks.
 
-## Vue d'ensemble
+## Scripts & Functionality
 
-Ce runbook utilise l'authentification par identité managée pour se connecter sécurisement à SQL Managed Instance et créer des sauvegardes chiffrées automatiquement.
+1.  **`SQLMI-InvokeSqlCmd-Secure-Backup-Runbook.ps1` (Recommended for SQL MI)**:
+    *   Connects to SQL Managed Instance using Managed Identity.
+    *   Executes `BACKUP DATABASE ... TO URL` for native `.bak` creation with compression.
+    *   Downloads the `.bak` file, encrypts it (AES-256 with Key Vault cert), and re-uploads the `.bak.encrypted` to Azure Blob Storage.
+    *   **Note**: The Azure Automation account requires the `SqlServer` PowerShell module to be imported for `Invoke-Sqlcmd` and related cmdlets if not using a Hybrid Worker with the module pre-installed.
 
-## Fichiers
+2.  **`encrypt-dump-NewAzSqlExport-method.PS1` (For Azure SQL Database PaaS)**:
+    *   Connects to Azure SQL Database (PaaS singletons/elastic pools).
+    *   Uses `New-AzSqlDatabaseExport` to create a `.bacpac` file directly in Azure Blob Storage.
+    *   Downloads the `.bacpac`, encrypts it (AES-256 with Key Vault cert), and re-uploads the `.bacpac.encrypted` to Azure Blob Storage.
 
-- **`SQL-Managed-Instance-Secure-Backup-Runbook.ps1`** - Script principal pour SQL Managed Instance
-- **`runbook-encrypt-dump-NewAzSqlExport-method.PS1`** - Script alternatif pour Azure SQL Database
+## Prerequisites (General for Runbooks)
+
+- Azure Automation Account with a System-Assigned Managed Identity.
+- **Managed Identity Permissions**:
+    - SQL Server: `db_owner` (or specific backup/connect permissions) on the target database(s). Create user from external provider: `CREATE USER [automation_account_identity_name] FROM EXTERNAL PROVIDER; ALTER ROLE db_owner ADD MEMBER [automation_account_identity_name];`
+    - Azure Key Vault: Permissions to get the certificate's public key (e.g., Key Vault Crypto User or custom role with `Microsoft.KeyVault/vaults/certificates/get/action`).
+    - Azure Storage Account: `Storage Blob Data Contributor` on the container for uploads/downloads.
+- Azure Key Vault with an encryption certificate.
+- Target Azure Storage Account and container.
+- For `SQLMI-InvokeSqlCmd-Secure-Backup-Runbook.ps1`: The `SqlServer` PowerShell module must be available to the runbook environment (imported into Automation Account modules or on Hybrid Worker).
+
+## Configuration
+
+- Set script parameters within each runbook (e.g., `$SubscriptionId`, `$ResourceGroup`, `$KeyVaultName`, `$SqlServerName`, `$AzureSqlDatabase`, `$StorageAccountName`, `$ContainerName`, `$CertificateName`).
+
+Refer to the main project [README](../../../README.md) for overall architecture and [Decryption Guide](../../../Decryption/README.md) for restoring backups.
 
 ## Avantages SQL Managed Instance
 
@@ -18,52 +39,6 @@ Ce runbook utilise l'authentification par identité managée pour se connecter s
 - **Authentification sécurisée** : `Invoke-Sqlcmd` avec token Azure AD  
 - **Format .bak efficace** : Backup natif haute performance  
 - **Simplicité** : Une seule commande T-SQL  
-
-## Installation
-
-### 1. Prérequis
-- Azure Automation Account avec identité managée système
-- SQL Managed Instance
-- Azure Key Vault avec certificat
-- Azure Storage Account
-
-### 2. Configuration SQL (Obligatoire)
-Connectez-vous à votre SQL Managed Instance et exécutez :
-
-```sql
--- Remplacez [AA-restore] par le nom exact de votre identité managée
--- (Ce nom apparaît dans les logs du runbook)
-CREATE USER [AA-restore] FROM EXTERNAL PROVIDER;
-ALTER ROLE db_owner ADD MEMBER [AA-restore];
-```
-
-**Note** : Le nom de l'identité managée est affiché dans les logs lors du test de connexion.
-
-### 3. Permissions Azure
-Votre identité managée doit avoir :
-- **Storage Blob Data Contributor** sur le Storage Account
-- **Key Vault Crypto User** sur le Key Vault  
-- **Lecteur** sur le Resource Group
-
-### 4. Import du Runbook
-1. Azure Portal → Automation Account
-2. Runbooks → Import a runbook
-3. Sélectionnez `SQL-Managed-Instance-Secure-Backup-Runbook.ps1`
-4. Configurez les paramètres
-
-## Configuration
-
-### Paramètres du Runbook
-```powershell
-$SubscriptionId = "votre-subscription-id"
-$ResourceGroup = "votre-resource-group"
-$KeyVaultName = "votre-key-vault"
-$SqlServerName = "votre-sqlmi-instance"        # Sans .database.windows.net
-$AzureSqlDatabase = "votre-database"
-$StorageAccountName = "votre-storage-account"
-$ContainerName = "backup"
-$CertificateName = "votre-certificat-encryption"
-```
 
 ## Fonctionnement
 

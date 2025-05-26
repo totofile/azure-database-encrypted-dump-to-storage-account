@@ -1,99 +1,46 @@
-# Scripts Client - Exécution Locale
+# Client-Side Backup & Encryption Scripts
 
-Scripts PowerShell pour sauvegardes sécurisées depuis un poste de travail ou serveur.
+PowerShell scripts for manual backup (.bacpac export), encryption, and upload of Azure SQL Databases from a local machine.
 
-## Vue d'ensemble
+## Scripts & Functionality
 
-Ces scripts permettent d'exécuter des sauvegardes chiffrées depuis n'importe quel poste Windows avec PowerShell, en utilisant l'authentification Azure AD interactive ou service principal.
+- **`encrypt-dump.ps1` (Main Script)**:
+    - Connects to Azure, exports an Azure SQL Database to a `.bacpac` file.
+    - Encrypts the `.bacpac` using an Azure Key Vault certificate (AES-256).
+    - Uploads the encrypted `.bacpac.encrypted` file to Azure Blob Storage.
+    - Can optionally create the Key Vault and certificate if they don't exist.
+- **`connect-sql-paas.ps1`**: Tests Azure SQL DB connectivity using Entra ID.
+- **`create-akv-cert.ps1`**: Tests Key Vault certificate creation.
 
-## Fichiers
+## Prerequisites
 
-- **`connect-sql-paas.ps1`** - Test de connectivité Azure SQL avec Azure AD
-- **`encrypt-dump.ps1`** - Script principal de backup et chiffrement (legacy)
-
-## Fonctionnalités
-
-- **Authentification Azure AD** : Connexion interactive ou service principal  
-- **Export BACPAC** : Compatible Azure SQL Database  
-- **Chiffrement local** : AES-256 avec certificats Key Vault  
-- **Upload sécurisé** : Vers Azure Blob Storage  
-- **Flexible** : Exécution depuis n'importe quel poste  
-
-## Installation
-
-### Prérequis
-- PowerShell 5.1 ou supérieur
-- Modules Azure PowerShell :
+- PowerShell 5.1+
+- Azure PowerShell Modules: `Az.Accounts`, `Az.KeyVault`, `Az.Storage`, `Az.Sql`, `SqlServer`.
   ```powershell
+  # Install if missing (run as admin or use -Scope CurrentUser)
   Install-Module Az.Accounts, Az.KeyVault, Az.Storage, Az.Sql, SqlServer -Force
   ```
-- Permissions Azure AD sur les ressources cibles
+- **Azure AD Identity (User/Service Principal) Permissions**:
+    - Key Vault: Create/access certificates.
+    - Azure SQL DB: Export database (e.g., Contributor role).
+    - Azure Storage: Write to Blob container (e.g., Storage Blob Data Contributor).
 
-### Configuration
-```powershell
-# Variables de configuration
-$SubscriptionId = "votre-subscription-id"
-$TenantId = "votre-tenant-id"
-$ResourceGroup = "votre-resource-group"
-$SqlServerName = "votre-sql-server"
-$AzureSqlDatabase = "votre-database"
-$KeyVaultName = "votre-key-vault"
-$StorageAccountName = "votre-storage-account"
-```
+## Basic Usage (`encrypt-dump.ps1`)
 
-## Usage
+1.  **Authenticate to Azure**: `Connect-AzAccount -TenantId "your-tenant-id"` (interactive or SP).
+2.  **Run the script** (review internal parameters or pass them):
+    ```powershell
+    .\encrypt-dump.ps1 -SubscriptionId "your-sub-id" `
+                       -ResourceGroup "your-rg" `
+                       -KeyVaultName "your-kv" `
+                       -SqlServerName "yourserver.database.windows.net" `
+                       -AzureSqlDatabase "yourdb" `
+                       -StorageAccountName "yourstorage" `
+                       -ContainerName "backups" `
+                       # ... other parameters as needed (Location, CertificateName, etc.)
+    ```
 
-### Test de Connectivité
-```powershell
-# Tester la connexion Azure SQL
-.\connect-sql-paas.ps1
-```
-
-### Backup Complet
-```powershell
-# Exécuter le backup et chiffrement
-.\encrypt-dump.ps1
-```
-
-## Authentification
-
-### Authentification Interactive
-```powershell
-# Connexion avec navigateur (recommandé pour tests)
-Connect-AzAccount -TenantId $TenantId
-```
-
-### Service Principal
-```powershell
-# Connexion automatisée
-$ClientId = "votre-app-id"
-$ClientSecret = "votre-client-secret"
-$SecureSecret = ConvertTo-SecureString $ClientSecret -AsPlainText -Force
-$Credential = New-Object System.Management.Automation.PSCredential($ClientId, $SecureSecret)
-Connect-AzAccount -ServicePrincipal -Credential $Credential -TenantId $TenantId
-```
-
-## Workflow
-
-### 1. Connexion Azure
-- Authentification Azure AD
-- Sélection de la subscription
-- Validation des permissions
-
-### 2. Export Database
-- Export BACPAC via API Azure
-- Téléchargement du fichier
-- Validation de l'intégrité
-
-### 3. Chiffrement
-- Récupération du certificat Key Vault
-- Chiffrement AES-256 + RSA
-- Création du fichier `.encrypted`
-
-### 4. Upload Sécurisé
-- Upload vers Azure Blob Storage
-- Génération d'URL de téléchargement avec SAS
-- Nettoyage des fichiers temporaires
+Refer to script comments for detailed parameters. For decryption, see the main [Decryption Guide](../../../Decryption/README.md).
 
 ## Configuration Avancée
 
