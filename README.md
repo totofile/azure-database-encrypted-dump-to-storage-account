@@ -1,81 +1,110 @@
-# Azure SQL Database Encrypted Backup Solution
+# Secure Azure SQL Backup & Encryption
 
-A comprehensive solution for securely exporting, encrypting, and archiving Azure SQL Database backups on Azure storage account using Azure Key Vault.
+Solution sécurisée pour sauvegarder et chiffrer les bases de données Azure SQL avec Azure Key Vault.
 
-## Overview
+## Vue d'ensemble
 
-This repository provides tools for secure database archiving with end-to-end encryption. The solution addresses security concerns when storing sensitive database backups by ensuring that data remains encrypted at rest and can only be decrypted by authorized users with access to the encryption certificate.
+Ce repository contient des scripts PowerShell pour créer des sauvegardes sécurisées et chiffrées de bases de données Azure SQL. Les sauvegardes sont chiffrées avec des certificats Azure Key Vault et stockées dans Azure Blob Storage.
 
-The workflow involves:
-1. Exporting an Azure SQL Database to BACPAC format
-2. Encrypting the BACPAC file using a certificate from Azure Key Vault
-3. Storing the encrypted backup in Azure Blob Storage
-4. Providing secure decryption capabilities when needed
+## Structure du Repository
 
-## Repository Structure
+```
+encrypt-dump/
+├── README.md                                    # Documentation principale
+├── SQL-Managed-Instance-Runbook/               # Solution recommandée
+│   ├── SQL-Managed-Instance-Secure-Backup-Runbook.ps1  # Script principal
+│   └── runbook-encrypt-dump-NewAzSqlExport-method.PS1   # Alternative Azure SQL DB
+├── Client-Scripts/                             # Scripts locaux
+│   └── connect-sql-paas.ps1                    # Test connectivité
+└── Decryption/                                 # Outils de déchiffrement
+    ├── decrypt.ps1                             # Script principal
+    └── README.md                               # Guide déchiffrement
+```
 
-The repository is organized into three main components:
+## Solutions Disponibles
 
-### 1. Client-Side Scripts (`from-client-dump-encrypt-db/`)
-- `encrypt-dump.ps1` - Main script for exporting and encrypting databases from a local workstation
-- `create-akv-cert.ps1` - Creates long-term certificates in Azure Key Vault this script is for testing and is also into the main that do all the job end-to-end
-- `connect-sql-paas.ps1` - Tests connectivity to Azure SQL Database with Microsoft Entra ID
-- `README_CLIENT.md` - Detailed instructions for client-side operations
+### SQL Managed Instance (Recommandé)
+**Script principal :** `SQL-Managed-Instance-Runbook/SQL-Managed-Instance-Secure-Backup-Runbook.ps1`
 
-### 2. Azure Automation Scripts (`from-azure-runbook-dump-encrypt-db/`)
-- `runbook-encrypt-dump.ps1` - Azure Runbook script for automated/scheduled backups
-- `README_RUNBOOK.md` - Instructions for setting up and using the automation solution
+- **Authentification sécurisée** : Identité managée Azure Automation  
+- **Backup natif** : Commande T-SQL `BACKUP DATABASE` standard  
+- **Performance optimale** : Compression intégrée SQL Server  
+- **Format .bak** : Backup natif haute performance  
 
-### 3. Decryption Tools (`Decryption/`)
-- `Decrypt-BacpacFile.ps1` - Script for decrypting the backup files from both client and runbook solutions
-- `README_DECRYPT.md` - Instructions for the decryption process
+### Azure SQL Database
+**Script :** `SQL-Managed-Instance-Runbook/runbook-encrypt-dump-NewAzSqlExport-method.PS1`
 
-## Key Features
+- **Limitations** : Export BACPAC via API Azure (plus lent)  
+- **Complexité** : Authentification plus complexe  
 
-- **Strong Encryption**: Implements AES-256 encryption with keys protected by Azure Key Vault certificates
-- **Hybrid Encryption Model**: Uses asymmetric encryption (RSA) for the AES key and symmetric encryption for the data
-- **Microsoft Entra ID Integration**: Uses Microsoft Entra ID authentication for secure access to Azure resources
-- **Flexible Deployment Options**: Run as client-side scripts or as an Azure Automation runbook
-- **Platform Independence**: Encrypted backups can be decrypted and restored on any Azure SQL Server
+## Installation Rapide
 
-## Security Architecture
+### Prérequis
+- Azure Automation Account avec identité managée système
+- SQL Managed Instance ou Azure SQL Database
+- Azure Key Vault avec certificat
+- Azure Storage Account
 
-- **Key Management**: All encryption keys are secured in Azure Key Vault
-- **No Shared Secrets**: The encryption certificate is never stored permanently outside of Key Vault
-- **Defense in Depth**: Uses a dual-layer encryption approach (RSA + AES)
-- **Access Control**: Only users with appropriate Key Vault permissions can access the encryption certificates
+### Configuration SQL (Obligatoire)
+Connectez-vous à votre base de données et exécutez :
 
-## Getting Started
+```sql
+-- Remplacez [AA-restore] par le nom de votre identité managée
+CREATE USER [AA-restore] FROM EXTERNAL PROVIDER;
+ALTER ROLE db_owner ADD MEMBER [AA-restore];
+```
 
-Choose the appropriate approach based on your operational requirements:
+### Déploiement
+1. Importez le script dans Azure Automation
+2. Configurez les paramètres dans le runbook
+3. Programmez l'exécution automatique
 
-1. [Client-Side Operations](from-client-dump-encrypt-db/README_CLIENT.md) - Run the scripts from a workstation or server
-2. [Automated Operations](from-azure-runbook-dump-encrypt-db/README_RUNBOOK.md) - Set up scheduled backups using Azure Automation
-3. [Backup Decryption](Decryption/README_DECRYPT.md) - Decrypt backups when needed
+## Sécurité
 
-## Prerequisites
+- **Authentification sans mot de passe** : Identité managée Azure
+- **Chiffrement AES-256** : Clés gérées par Azure Key Vault  
+- **Rotation automatique** : Certificats Azure Key Vault
+- **Principe du moindre privilège** : Permissions minimales
 
-- PowerShell 5.1 or later
-- Azure PowerShell modules:
-  - Az.Accounts
-  - Az.KeyVault
-  - Az.Storage
-  - Az.Sql
-  - SqlServer
-- Appropriate permissions on Azure resources:
-  - Contributor access to Azure SQL Database
-  - Access to create/manage certificates in Azure Key Vault
-  - Storage Blob Data Contributor on the target Storage Account
+## Comparaison des Solutions
 
-## Compliance and Best Practices
+| Critère | SQL Managed Instance | Azure SQL Database |
+|---------|---------------------|-------------------|
+| **Performance** | Excellent | Bon |
+| **Simplicité** | Très simple | Complexe |
+| **Format** | .bak (natif) | .bacpac (export) |
+| **Taille** | Compressé | Plus volumineux |
+| **Vitesse** | Rapide | Plus lent |
 
-This solution follows security best practices for:
-- Secure data export
-- Key management
-- Encryption at rest
-- Principle of least privilege
-- Separation of duties
+## Usage
 
-## License
+### Pour SQL Managed Instance
+```powershell
+# Configuration dans le runbook
+$SqlServerName = "votre-sqlmi-instance"
+$AzureSqlDatabase = "votre-database"
+$StorageAccountName = "votre-storage"
+$KeyVaultName = "votre-keyvault"
+```
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+### Exécution
+Le runbook peut être exécuté :
+- Manuellement depuis le portail Azure
+- Automatiquement via schedule
+- Déclenché par webhook
+
+## Documentation Détaillée
+
+- [Guide SQL Managed Instance](SQL-Managed-Instance-Runbook/README.md)
+- [Guide Déchiffrement](Decryption/README.md)
+
+## Support
+
+Pour des questions ou problèmes :
+1. Vérifiez les logs Azure Automation
+2. Validez les permissions de l'identité managée
+3. Testez la connectivité SQL avec `Invoke-Sqlcmd`
+
+## Licence
+
+Ce projet est sous licence MIT. Voir le fichier LICENSE pour plus de détails.

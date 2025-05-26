@@ -5,8 +5,8 @@
     This runbook exports an Azure SQL Database to BACPAC format, encrypts it with a Key Vault certificate,
     and stores the result in Azure Blob Storage.
 .NOTES
-    Author: Theophile Faugeras-Cultrera
-    Date: 2025-05-03
+    Author: totofile
+    Date: 2025-05-26
     PowerShell: 7.2
 #>
 
@@ -21,8 +21,8 @@ param(
     [string]$StorageAccountRG = "your-storage-resource-group",
     [string]$ContainerName = "your-container-name",
     [string]$CertificateName = "cert-YourDatabaseName",
-    [string]$AdminLogin = "user@example.com", # ⚠️ Use a Microsoft Entra ID account
-    [string]$AdminPassword = "YourSecurePassword"                    # Microsoft Entra ID account password
+    [string]$AdminLogin = "user@example.com", # Use a Microsoft Entra ID account
+    [string]$AdminPassword = "YourSecurePassword"              # Microsoft Entra ID account password
 )
 
 # Minimal configuration for runbooks
