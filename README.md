@@ -53,9 +53,9 @@ encrypt-dump/
 Connect to your database and execute:
 
 ```sql
--- Replace [AA-restore] with your managed identity name
-CREATE USER [AA-restore] FROM EXTERNAL PROVIDER;
-ALTER ROLE db_owner ADD MEMBER [AA-restore];
+-- Replace [your_automation_account_name] with your managed identity name
+CREATE USER [your_automation_account_name] FROM EXTERNAL PROVIDER;
+ALTER ROLE db_owner ADD MEMBER [your_automation_account_name];
 ```
 
 ### Deployment Steps
@@ -96,10 +96,6 @@ $KeyVaultName = "your-keyvault"
 - Scheduled automation
 - Webhook triggers
 
-## Detailed Documentation
-
-- [SQL Managed Instance Guide](SQL-Managed-Instance-Runbook/README.md)
-- [Decryption Guide](Decryption/README.md)
 
 ## Troubleshooting
 
