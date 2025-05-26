@@ -16,11 +16,11 @@ This repository provides PowerShell scripts for creating secure, encrypted backu
 .
 ├── README.md                                             # Main documentation
 ├── encrypted-azure-sql-&-sqlmi-backup-to-blob-storage/
-│   ├── from-azure-runbook-dump-encrypt-db/             # Scripts for Azure Automation runbooks
+│   ├── from-azure-runbook/             # Scripts for Azure Automation runbooks
 │   │   ├── SQLMI-InvokeSqlCmd-Secure-Backup-Runbook.ps1  # Primary script for SQL Managed Instance (.bak)
 │   │   ├── encrypt-dump-NewAzSqlExport-method.PS1      # Alternative for Azure SQL Database (.bacpac)
 │   │   └── README.md                                     # Guide for these runbooks
-│   └── from-client-scripts/                            # Utility scripts for local execution
+│   └── from-client/                            # Utility scripts for local execution
 │       ├── connect-sql-paas.ps1                        # SQL connectivity testing script
 │       ├── create-akv-cert.ps1                         # Script to create AKV certificate
 │       ├── encrypt-dump.PS1                            # Client-side encryption script
@@ -34,7 +34,7 @@ This repository provides PowerShell scripts for creating secure, encrypted backu
 ## Features
 
 ### SQL Managed Instance (Recommended)
-**Script:** `encrypted-azure-sql-&-sqlmi-backup-to-blob-storage/from-azure-runbook-dump-encrypt-db/SQLMI-InvokeSqlCmd-Secure-Backup-Runbook.ps1`
+**Script:** `encrypted-azure-sql-&-sqlmi-backup-to-blob-storage/from-azure-runbook/SQLMI-InvokeSqlCmd-Secure-Backup-Runbook.ps1`
 
 - **Secure Authentication**: Azure Automation Managed Identity
 - **Native Backup**: Standard T-SQL `BACKUP DATABASE` command
@@ -42,7 +42,7 @@ This repository provides PowerShell scripts for creating secure, encrypted backu
 - **Native Format**: High-performance .bak format
 
 ### Azure SQL Database
-**Script:** `encrypted-azure-sql-&-sqlmi-backup-to-blob-storage/from-azure-runbook-dump-encrypt-db/encrypt-dump-NewAzSqlExport-method.PS1`
+**Script:** `encrypted-azure-sql-&-sqlmi-backup-to-blob-storage/from-azure-runbook/encrypt-dump-NewAzSqlExport-method.PS1`
 
 - **API-based**: BACPAC export via Azure API (suitable for Azure SQL DB singletons/elastic pools)
 - **Complex Authentication**: May require additional setup compared to Managed Identity with SQL MI.
@@ -104,8 +104,8 @@ $KeyVaultName = "your-keyvault"
 
 ## Detailed Documentation
 
-- [Azure Automation Runbook Guide](encrypted-azure-sql-&-sqlmi-backup-to-blob-storage/from-azure-runbook-dump-encrypt-db/README.md)
-- [Client Scripts Guide](encrypted-azure-sql-&-sqlmi-backup-to-blob-storage/from-client-scripts/README.md)
+- [Azure Automation Runbook Guide](encrypted-azure-sql-&-sqlmi-backup-to-blob-storage/from-azure-runbook/README.md)
+- [Client Scripts Guide](encrypted-azure-sql-&-sqlmi-backup-to-blob-storage/from-client/README.md)
 - [Decryption Guide](Decryption/README.md)
 
 ## Troubleshooting
