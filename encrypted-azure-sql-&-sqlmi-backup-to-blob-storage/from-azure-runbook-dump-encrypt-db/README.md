@@ -47,6 +47,7 @@ Your managed identity needs:
 - **Storage Blob Data Contributor** on the Storage Account
 - **Key Vault Crypto User** on the Key Vault
 - **Reader** on the Resource Group
+- **Contributor** on SQL Managed Instance
 
 ### 4. Automation-Account Import Module
 1. Azure Portal → Automation Account
