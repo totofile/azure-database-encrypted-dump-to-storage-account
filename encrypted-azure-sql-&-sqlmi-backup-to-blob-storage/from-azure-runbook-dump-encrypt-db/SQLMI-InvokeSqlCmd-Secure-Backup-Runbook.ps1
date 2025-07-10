@@ -142,7 +142,7 @@ workflow runbook_archivelogs01_settings {
         }
 
         # RUNBOOK START
-        Write-Log "Starting runbook for database $AzureSqlDatabase (Archive Year: $ArchiveYear)"
+        Write-Log "Starting runbook for database $AzureSqlDatabase$ArchiveYear (Archive Year: $ArchiveYear)"
 
         try {
             # Connect with managed identity
@@ -197,7 +197,7 @@ workflow runbook_archivelogs01_settings {
                 }
                 
                 Write-Log "Target server: $fullServerName"
-                Write-Log "Target database: $AzureSqlDatabase"
+                Write-Log "Target database: $AzureSqlDatabase$ArchiveYear"
                 
                 # Step 1: Test connection with Invoke-Sqlcmd
                 Write-Log "Step 1: Testing connection to database with managed identity..."
@@ -205,7 +205,7 @@ workflow runbook_archivelogs01_settings {
                     $testQuery = "SELECT DB_NAME() AS CurrentDatabase, CURRENT_USER AS CurrentUser, SYSTEM_USER AS SystemUser;"
                     
                     $queryResult = Invoke-Sqlcmd -ServerInstance $fullServerName `
-                                            -Database $AzureSqlDatabase `
+                                            -Database $AzureSqlDatabase$ArchiveYear `
                                             -AccessToken $access_token `
                                             -Query $testQuery `
                                             -ErrorAction Stop
@@ -254,7 +254,7 @@ END
 -- Step 2: Backup database to Azure Blob Storage
 PRINT 'Starting backup to: $backupUrl';
 
-BACKUP DATABASE [$AzureSqlDatabase]
+BACKUP DATABASE [$AzureSqlDatabase$ArchiveYear]
 TO URL = '$backupUrl'
 WITH FORMAT, INIT, COMPRESSION;
 
@@ -263,7 +263,7 @@ PRINT 'Backup completed successfully.';
                     
                     Write-Log "Executing T-SQL backup command..."
                     $backupResult = Invoke-Sqlcmd -ServerInstance $fullServerName `
-                                                -Database $AzureSqlDatabase `
+                                                -Database $AzureSqlDatabase$ArchiveYear `
                                                 -AccessToken $access_token `
                                                 -Query $backupQuery `
                                                 -QueryTimeout 3600 `
@@ -418,7 +418,7 @@ PRINT 'Backup completed successfully.';
                 $result = @{
                     Status = "Success"
                     Message = "Export and encryption successful"
-                    Database = $AzureSqlDatabase
+                    Database = $AzureSqlDatabase$ArchiveYear
                     Server = $SqlServerName
                     BackupFile = $encryptedBlobName
                     SasUri = $sasToken
@@ -443,7 +443,7 @@ PRINT 'Backup completed successfully.';
             return @{
                 Status = "Failed"
                 Error = $_.Exception.Message
-                Database = $AzureSqlDatabase
+                Database = $AzureSqlDatabase$ArchiveYear
                 Server = $SqlServerName
                 Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
             }
