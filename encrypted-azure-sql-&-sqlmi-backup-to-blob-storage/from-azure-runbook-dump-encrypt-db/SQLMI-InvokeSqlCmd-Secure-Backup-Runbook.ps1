@@ -10,7 +10,7 @@
     PowerShell: 7.2
 #>
 
-workflow SQLMI-InvokeSqlCmd-Secure-Backup-Runbook {
+workflow runbook_archivelogs01_settings {
     param(
         [Parameter(Mandatory=$true)][string]$SubscriptionId,
         [Parameter(Mandatory=$true)][string]$ResourceGroup,
