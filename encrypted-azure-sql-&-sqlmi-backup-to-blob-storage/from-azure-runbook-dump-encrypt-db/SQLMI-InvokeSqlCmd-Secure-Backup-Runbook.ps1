@@ -15,12 +15,11 @@ param(
     [string]$SubscriptionId = "00000000-0000-0000-0000-000000000000",
     [string]$ResourceGroup = "your-resource-group",
     [string]$KeyVaultName = "your-key-vault-name",
-    [string]$SqlServerName = "your-sql-server-name",                     # Server name without suffix
-    [string]$AzureSqlDatabase = "your-sql-database-name",
+    [string]$SqlServerName = "your-sql-server-name",  # Server name without suffix
+    [string]$AzureSqlDatabase = "your-sql-database-name$ArchiveYear",
     [string]$StorageAccountName = "your-storage-account-name",
     [string]$StorageAccountRG = "your-resource-group",
     [string]$ContainerName = "your-container-name"
-    # Removed CertificateName parameter - will be generated dynamically
 )
 
 # Minimal configuration for runbooks
