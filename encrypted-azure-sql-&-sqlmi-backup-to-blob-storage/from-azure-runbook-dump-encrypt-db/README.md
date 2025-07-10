@@ -42,9 +42,10 @@ Connect to your SQL Managed Instance and execute:
 
 ```sql
 -- Replace [automation_account_name] with your managed identity name
--- (This name appears in the runbook logs)
+-- Zero Trust approach (recommended)
 CREATE USER [automation_account_name] FROM EXTERNAL PROVIDER;
-ALTER ROLE db_owner ADD MEMBER [automation_account_name];
+ALTER ROLE db_backupoperator ADD MEMBER [automation_account_name];
+GRANT ALTER ANY CREDENTIAL TO [automation_account_name];
 ```
 
 **Note**: The managed identity name appears in the logs during connection testing.
