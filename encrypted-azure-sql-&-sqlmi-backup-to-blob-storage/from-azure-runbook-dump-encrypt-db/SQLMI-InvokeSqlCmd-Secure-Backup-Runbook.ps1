@@ -6,7 +6,7 @@
     and stores the result in Azure Blob Storage.
 .NOTES
     Author: totofile
-    Date: 2025-05-26
+    Date: 2025-07-10
     PowerShell: 7.2
 #>
 
@@ -19,13 +19,20 @@ param(
     [string]$AzureSqlDatabase = "your-sql-database-name",
     [string]$StorageAccountName = "your-storage-account-name",
     [string]$StorageAccountRG = "your-resource-group",
-    [string]$ContainerName = "your-container-name",
-    [string]$CertificateName = "your-certificate-name"
+    [string]$ContainerName = "your-container-name"
+    # Removed CertificateName parameter - will be generated dynamically
 )
 
 # Minimal configuration for runbooks
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue" # Improves performance in Automation
+
+# Calculate year for naming (current year - 1)
+$ArchiveYear = (Get-Date).Year - 1
+$CertificateName = "backup-cert-$ArchiveYear"
+
+Write-Output "Using archive year: $ArchiveYear"
+Write-Output "Certificate name: $CertificateName"
 
 # Simplified logging function
 function Write-Log {
@@ -42,8 +49,82 @@ function Format-FileSize {
     return "$Size Bytes"
 }
 
+function New-KeyVaultCertificateIfNotExists {
+    param(
+        [string]$VaultName,
+        [string]$CertName,
+        [string]$Subject = "CN=$CertName"
+    )
+    
+    Write-Log "Checking if certificate '$CertName' exists in Key Vault '$VaultName'"
+    
+    try {
+        $existingCert = Get-AzKeyVaultCertificate -VaultName $VaultName -Name $CertName -ErrorAction SilentlyContinue
+        
+        if ($existingCert) {
+            Write-Log "Certificate '$CertName' already exists. Expiry: $($existingCert.Expires)"
+            
+            # Check if certificate is expiring soon (within 30 days)
+            if ($existingCert.Expires -lt (Get-Date).AddDays(30)) {
+                Write-Log "Certificate is expiring soon, creating a new one..." -Level "WARNING"
+            } else {
+                Write-Log "Using existing certificate"
+                return $existingCert
+            }
+        }
+        
+        Write-Log "Creating new certificate '$CertName' with maximum validity period..."
+        
+        # Create certificate policy with maximum validity (25 years = ~9125 days)
+        $policy = New-AzKeyVaultCertificatePolicy -SubjectName $Subject `
+                                                 -KeySize 2048 `
+                                                 -KeyType RSA `
+                                                 -ValidityInMonths 300 `
+                                                 -ReuseKeyOnRenewal `
+                                                 -IssuerName "Self" `
+                                                 -KeyUsage KeyEncipherment, DataEncipherment `
+                                                 -Ekus "1.3.6.1.5.5.7.3.1", "1.3.6.1.5.5.7.3.2"
+        
+        Write-Log "Certificate policy created with 300 months validity (~25 years)"
+        
+        # Start certificate creation
+        $certOperation = Add-AzKeyVaultCertificate -VaultName $VaultName -Name $CertName -CertificatePolicy $policy
+        
+        Write-Log "Certificate creation initiated. Waiting for completion..."
+        
+        # Wait for certificate creation to complete (max 5 minutes)
+        $timeout = 180 # 3 minutes
+        $elapsed = 0
+        $pollInterval = 10
+        
+        do {
+            Start-Sleep -Seconds $pollInterval
+            $elapsed += $pollInterval
+            
+            $cert = Get-AzKeyVaultCertificate -VaultName $VaultName -Name $CertName -ErrorAction SilentlyContinue
+            
+            if ($cert -and $cert.Enabled) {
+                Write-Log "✓ Certificate '$CertName' created successfully!"
+                Write-Log "Certificate expires: $($cert.Expires)"
+                return $cert
+            }
+            
+            if ($elapsed % 30 -eq 0) {
+                Write-Log "Still waiting for certificate creation... ($elapsed/$timeout seconds)"
+            }
+            
+        } while ($elapsed -lt $timeout)
+        
+        throw "Certificate creation timed out after $timeout seconds"
+    }
+    catch {
+        Write-Log "Failed to create certificate: $_" -Level "ERROR"
+        throw
+    }
+}
+
 # RUNBOOK START
-Write-Log "Starting runbook for database $AzureSqlDatabase"
+Write-Log "Starting runbook for database $AzureSqlDatabase (Archive Year: $ArchiveYear)"
 
 try {
     # Connect with managed identity
@@ -58,10 +139,10 @@ try {
     Select-AzSubscription -SubscriptionId $SubscriptionId
     Write-Log "Subscription: $SubscriptionId"
     
-    # Access Key Vault and certificate
-    Write-Log "Verifying certificate $CertificateName in $KeyVaultName"
+    # Create or verify certificate in Key Vault
+    Write-Log "Creating/verifying certificate $CertificateName in $KeyVaultName"
     $keyVault = Get-AzKeyVault -VaultName $KeyVaultName -ResourceGroupName $ResourceGroup
-    $certInKv = Get-AzKeyVaultCertificate -VaultName $KeyVaultName -Name $CertificateName
+    $certInKv = New-KeyVaultCertificateIfNotExists -VaultName $KeyVaultName -CertName $CertificateName
     
     # Access storage
     Write-Log "Preparing storage $StorageAccountName"
@@ -81,9 +162,9 @@ try {
     New-Item -Path $tempDir -ItemType Directory -Force | Out-Null
     
     try {
-        # Prepare export
+        # Prepare export with archive year naming
         $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
-        $bacpacFileName = "$AzureSqlDatabase-$timestamp.bacpac"
+        $bacpacFileName = "$AzureSqlDatabase-archive-$ArchiveYear-$timestamp.bacpac"
         $backupPath = Join-Path -Path $tempDir -ChildPath $bacpacFileName
         $tempBacpacBlobName = "temp-$bacpacFileName"
         $blobUri = "https://$StorageAccountName.blob.core.windows.net/$ContainerName/$tempBacpacBlobName"
@@ -127,8 +208,8 @@ try {
         # Step 2: Backup database to storage account using T-SQL (SQL Managed Instance)
         Write-Log "Step 2: Backing up database to storage account using T-SQL..."
         
-        # Create the backup file name and URL (.bak for SQL Managed Instance)
-        $backupFileName = "$AzureSqlDatabase-$timestamp.bak"
+        # Create the backup file name and URL (.bak for SQL Managed Instance) with archive year
+        $backupFileName = "$AzureSqlDatabase-archive-$ArchiveYear-$timestamp.bak"
         $backupUrl = "https://$StorageAccountName.blob.core.windows.net/$ContainerName/$backupFileName"
         $credentialName = "https://$StorageAccountName.blob.core.windows.net/$ContainerName"
         
@@ -212,10 +293,10 @@ PRINT 'Backup completed successfully.';
         # Encrypt the BACPAC
         Write-Log "Starting encryption"
         
-        # Get certificate key
-        $certSecret = Get-AzKeyVaultCertificate -VaultName $KeyVaultName -Name $CertificateName
-        $keyName = $certSecret.KeyId -replace '.*/keys/', '' -replace '/.*$', ''
+        # Get certificate key (using the certificate created/verified earlier)
+        $keyName = $certInKv.KeyId -replace '.*/keys/', '' -replace '/.*$', ''
         $keyVaultKey = Get-AzKeyVaultKey -VaultName $KeyVaultName -Name $keyName
+        Write-Log "Using encryption key: $keyName"
         
         # Encrypted file
         $encryptedPath = "$backupPath.encrypted"
@@ -309,7 +390,7 @@ PRINT 'Backup completed successfully.';
         
         # Upload encrypted file to Blob Storage
         Write-Log "Uploading encrypted file to Azure Storage"
-        $encryptedBlobName = "$AzureSqlDatabase-$timestamp.bacpac.encrypted"
+        $encryptedBlobName = "$AzureSqlDatabase-archive-$ArchiveYear-$timestamp.bacpac.encrypted"
         Set-AzStorageBlobContent -File $encryptedPath -Container $ContainerName -Blob $encryptedBlobName -Context $storageContext -Force | Out-Null
         
         # Generate SAS link

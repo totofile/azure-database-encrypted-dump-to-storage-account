@@ -13,10 +13,33 @@ Optionally, it can attempt to auto-restore `.bak` files to a specified SQL Serve
 
 ## Prerequisites
 
-- PowerShell 5.1+
-- Azure PowerShell Modules: `Az.Accounts`, `Az.KeyVault`.
-- Access to the Azure Key Vault and the specific certificate used for encryption.
-- The `.encrypted` backup file.
+### Technical Requirements
+- **PowerShell 5.1+** ou **PowerShell Core 7.x**
+- **Azure PowerShell Modules**: 
+  ```powershell
+  Install-Module Az.Accounts -Scope CurrentUser
+  Install-Module Az.KeyVault -Scope CurrentUser
+  ```
+
+### Azure Access Requirements
+- **Accès au Key Vault** contenant le certificat de chiffrement
+- **Fichier `.encrypted`** (`.bak.encrypted` ou `.bacpac.encrypted`)
+- **Connexion Azure** (via `Connect-AzAccount` ou Service Principal)
+
+### Required Azure RBAC Roles (Minimum)
+
+#### Rôles obligatoires pour le décryptage :
+1. **Key Vault Certificate User** - Lecture des certificats
+2. **Key Vault Crypto User** - Opérations de décryptage  
+3. **Key Vault Secrets User** - Accès aux secrets (fallback)
+
+#### Rôles optionnels :
+4. **Storage Blob Data Reader** - Si téléchargement depuis Azure Storage
+
+### Permissions SQL Server (pour auto-restore)
+- **sysadmin** ou **dbcreator** sur l'instance SQL Server cible
+
+> ⚠️ **Important** : L'utilisateur/service principal doit avoir ces rôles assignés au niveau du **Key Vault** spécifique, pas seulement au niveau subscription.
 
 ## Basic Usage
 
@@ -126,10 +149,45 @@ If using the `-AutoRestore` parameter with `decrypt.ps1`, the script attempts th
 
 ## Security
 
-### Required Permissions
-- **Key Vault Crypto User**: Certificate access
-- **Storage Blob Data Reader**: Encrypted file download
-- **sysadmin** or **dbcreator**: SQL Server restore
+### Required Azure Roles (Minimum)
+
+#### Pour l'utilisateur/service principal exécutant le script :
+
+1. **Key Vault Certificate User** (`4633458b-17de-408a-b874-0445c86b69e6`)
+   - Accès en lecture aux certificats dans Key Vault
+   - Permet `Get-AzKeyVaultCertificate`
+
+2. **Key Vault Crypto User** (`12338af0-0e69-4776-bea7-57ae8d297424`)
+   - Accès aux opérations cryptographiques
+   - Permet `Invoke-AzKeyVaultKeyOperation` pour le décryptage
+
+3. **Key Vault Secrets User** (`4633458b-17de-408a-b874-0445c86b69e6`)
+   - Accès en lecture aux secrets (pour l'export de certificat si nécessaire)
+   - Permet `Get-AzKeyVaultSecret` en fallback
+
+4. **Storage Blob Data Reader** (`2a2b9908-6ea1-4ae2-8e65-a410df84e7d1`) *(Optionnel)*
+   - Pour télécharger les fichiers encrypted depuis Azure Blob Storage
+   - Nécessaire seulement si le script télécharge depuis le Storage Account
+
+#### Assignation des rôles (exemples PowerShell) :
+
+```powershell
+# Pour un utilisateur
+$UserObjectId = "your-user-object-id"
+$KeyVaultName = "your-key-vault-name"
+$StorageAccountName = "your-storage-account-name"
+
+# Rôles Key Vault
+New-AzRoleAssignment -ObjectId $UserObjectId -RoleDefinitionName "Key Vault Certificate User" -Scope "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroup/providers/Microsoft.KeyVault/vaults/$KeyVaultName"
+New-AzRoleAssignment -ObjectId $UserObjectId -RoleDefinitionName "Key Vault Crypto User" -Scope "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroup/providers/Microsoft.KeyVault/vaults/$KeyVaultName"
+New-AzRoleAssignment -ObjectId $UserObjectId -RoleDefinitionName "Key Vault Secrets User" -Scope "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroup/providers/Microsoft.KeyVault/vaults/$KeyVaultName"
+
+# Rôle Storage (si nécessaire)
+New-AzRoleAssignment -ObjectId $UserObjectId -RoleDefinitionName "Storage Blob Data Reader" -Scope "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroup/providers/Microsoft.Storage/storageAccounts/$StorageAccountName"
+```
+
+#### Pour SQL Server (si auto-restore activé) :
+- **sysadmin** ou **dbcreator**: Restauration de base de données
 
 ### Best Practices
 - Use managed identities when possible
@@ -156,6 +214,38 @@ Always verify the restored database manually after the process.
 ```powershell
 # Enable detailed logging
 .\decrypt.ps1 -EncryptedFile "file.encrypted" -KeyVaultName "kv" -Verbose
+```
+
+### Verification des Permissions
+```powershell
+# Vérifier l'accès au Key Vault
+$KeyVaultName = "your-key-vault-name"
+$CertificateName = "your-certificate-name"
+
+# Test 1: Lecture du certificat
+try {
+    $cert = Get-AzKeyVaultCertificate -VaultName $KeyVaultName -Name $CertificateName
+    Write-Host "✓ Certificate access: OK" -ForegroundColor Green
+} catch {
+    Write-Host "✗ Certificate access: FAILED - $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Test 2: Opération cryptographique
+try {
+    $testData = [System.Text.Encoding]::UTF8.GetBytes("test")
+    $result = Invoke-AzKeyVaultKeyOperation -VaultName $KeyVaultName -KeyName $CertificateName -Algorithm "RSA-OAEP-256" -Operation "Encrypt" -ByteArrayValue $testData
+    Write-Host "✓ Crypto operations: OK" -ForegroundColor Green
+} catch {
+    Write-Host "✗ Crypto operations: FAILED - $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# Test 3: Accès aux secrets (fallback)
+try {
+    $secret = Get-AzKeyVaultSecret -VaultName $KeyVaultName -Name $CertificateName
+    Write-Host "✓ Secret access: OK" -ForegroundColor Green
+} catch {
+    Write-Host "✗ Secret access: FAILED - $($_.Exception.Message)" -ForegroundColor Red
+}
 ```
 
 ## Performance

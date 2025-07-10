@@ -27,8 +27,15 @@ PowerShell scripts for automated, secure backups of Azure SQL Managed Instance a
 ### 1. Prerequisites
 - Azure Automation Account with system-assigned managed identity
 - SQL Managed Instance
-- Azure Key Vault with certificate
+- Azure Key Vault 
 - Azure Storage Account
+
+#### Required RBAC Roles (Zero Trust - Minimum Scope)
+For the Automation Account managed identity:
+- **Key Vault Contributor** (Key Vault scope) - Certificate creation
+- **Storage Blob Data Contributor** (Storage Account scope) - Backup file management  
+- **SQL Managed Instance Contributor** (SQL MI scope) - T-SQL backup operations
+- **Reader** (Resource Group scope) - Resource discovery
 
 ### 2. SQL Configuration (Required)
 Connect to your SQL Managed Instance and execute:
@@ -43,11 +50,11 @@ ALTER ROLE db_owner ADD MEMBER [automation_account_name];
 **Note**: The managed identity name appears in the logs during connection testing.
 
 ### 3. Azure Permissions
-Your managed identity needs:
-- **Storage Blob Data Contributor** on the Storage Account
-- **Key Vault Crypto User** on the Key Vault
-- **Reader** on the Resource Group
-- **Contributor** on SQL Managed Instance
+For the Automation Account managed identity:
+- **Key Vault Contributor** (Key Vault scope) - Certificate creation
+- **Storage Blob Data Contributor** (Storage Account scope) - Backup file management  
+- **SQL Managed Instance Contributor** (SQL MI scope) - T-SQL backup operations
+- **Reader** (Resource Group scope) - Resource discovery
 
 ### 4. Automation-Account Import Module
 1. Azure Portal → Automation Account
