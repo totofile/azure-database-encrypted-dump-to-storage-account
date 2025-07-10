@@ -32,7 +32,7 @@ PowerShell scripts for automated, secure backups of Azure SQL Managed Instance a
 
 #### Required RBAC Roles (Zero Trust - Minimum Scope)
 For the Automation Account managed identity:
-- **Key Vault Contributor** (Key Vault scope) - Certificate creation
+- **Key Vault Certificate Officer** (Key Vault scope) - Certificate creation
 - **Storage Blob Data Contributor** (Storage Account scope) - Backup file management  
 - **SQL Managed Instance Contributor** (SQL MI scope) - T-SQL backup operations
 - **Reader** (Resource Group scope) - Resource discovery
