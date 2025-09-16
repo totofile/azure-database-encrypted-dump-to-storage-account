@@ -1,24 +1,3 @@
-<#
-.SYNOPSIS
-    Runbook pour archiver une base Azure SQL Managed Instance vers Azure Storage
-.DESCRIPTION
-    Ce script runbook utilise SqlPackage.exe pour exporter une base SQL MI au format BACPAC
-    vers Azure Blob Storage. Il supporte l'authentification par Managed Identity.
-    
-    IMPORTANT: T-SQL BACKUP DATABASE ne fonctionne PAS avec des URLs externes sur SQL MI.
-    Seul SqlPackage est supporté pour l'export vers Azure Storage.
-.NOTES
-    Auteur: Assistant IA
-    Date: 2025-01-16
-    PowerShell: 7.2
-    
-    Prérequis SQL Managed Instance :
-    - Automation Account avec Managed Identity
-    - Module SqlServer installé dans l'Automation Account
-    - RBAC : Reader sur RG, Storage Blob Data Contributor
-    - SqlPackage.exe (téléchargé automatiquement si absent)
-#>
-
 param(
     [string]$SubscriptionId = "d81eb1ff-2fdf-4280-bad9-5c180d51db77",
     [string]$ResourceGroup = "theophile.faugeras_rg-00",
